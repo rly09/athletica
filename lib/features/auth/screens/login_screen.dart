@@ -16,6 +16,10 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -38,13 +42,23 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _controller.dispose();
+    emailController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
-  Widget buildTextField(String label, IconData icon, bool obscure) {
-    return TextField(
+  Widget buildTextField(String label, IconData icon, bool obscure,
+      TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
       obscureText: obscure,
       style: const TextStyle(color: Colors.white),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "$label is required";
+        }
+        return null;
+      },
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.white70),
         labelText: label,
@@ -59,6 +73,27 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  void _navigateToSignUp() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+        const SignupScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0); // from right
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
+
+          var tween = Tween(begin: begin, end: end)
+              .chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+
+          return SlideTransition(position: offsetAnimation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 600),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen>
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF4F46E5), Color(0xFF312E81)], // Indigo shades
+            colors: [Color(0xFF4F46E5), Color(0xFF312E81)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -79,109 +114,106 @@ class _LoginScreenState extends State<LoginScreen>
                 position: _slideAnimation,
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Lottie animation
-                      Lottie.asset(
-                        'assets/animations/login.json',
-                        height: 200,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Title
-                      Text(
-                        "Welcome Back to Athletica 🏋️‍♂️",
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Lottie.asset(
+                          'assets/animations/login.json',
+                          height: 180,
                         ),
-                      ),
-                      const SizedBox(height: 30),
+                        const SizedBox(height: 20),
 
-                      // Email + Password fields
-                      buildTextField("Email", Icons.email, false),
-                      const SizedBox(height: 16),
-                      buildTextField("Password", Icons.lock, true),
-                      const SizedBox(height: 24),
-
-                      // Login button
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.indigo[700],
-                          minimumSize: const Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 3,
-                        ),
-                        onPressed: () {
-                          // TODO: Navigate to dashboard
-                        },
-                        child: const Text(
-                          "Login",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Google login
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.white, width: 1.5),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                        Text(
+                          "Welcome Back to Athletica 🏋️‍♂️",
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                        icon: Image.asset(
-                          "assets/icons/google.png",
-                          height: 24,
-                        ),
-                        label: const Text(
-                          "Continue with Google",
-                          style: TextStyle(fontSize: 16),
-                        ),
-                        onPressed: () {
-                          // TODO: Google Sign-in logic
-                        },
-                      ),
-                      const SizedBox(height: 30),
+                        const SizedBox(height: 30),
 
-                      // Redirect to Sign Up
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "Don’t have an account? ",
-                            style: TextStyle(color: Colors.white70),
+                        buildTextField(
+                            "Email", Icons.email, false, emailController),
+                        const SizedBox(height: 16),
+                        buildTextField(
+                            "Password", Icons.lock, true, passwordController),
+                        const SizedBox(height: 24),
+
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.indigo[700],
+                            minimumSize: const Size(double.infinity, 55),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SignupScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              "Sign Up",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
-                              ),
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              // TODO: Navigate to dashboard
+                            }
+                          },
+                          child: const Text(
+                            "Login",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 18),
+
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                                color: Colors.white, width: 1.5),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 55),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          icon: Image.asset(
+                            "assets/icons/google.png",
+                            height: 24,
+                          ),
+                          label: const Text(
+                            "Continue with Google",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          onPressed: () {
+                            // TODO: Google Sign-in logic
+                          },
+                        ),
+                        const SizedBox(height: 30),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              "Don’t have an account? ",
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            GestureDetector(
+                              onTap: _navigateToSignUp,
+                              child: const Text(
+                                "Sign Up",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
