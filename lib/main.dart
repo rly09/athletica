@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-//import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/onboarding_screen.dart';
 //import 'features/dashboard/screens/dashboard_screen.dart';
 import 'core/theme/app_theme.dart';
@@ -31,7 +31,7 @@ class AthleticaApp extends StatelessWidget {
       initialRoute: '/onboarding',
       routes: {
         '/onboarding': (_) => const OnboardingScreen(),
-        //'/login': (_) => const LoginScreen(),
+        '/login': (_) => const LoginScreen(),
         //'/dashboard': (_) => const DashboardScreen(),
       },
     );
