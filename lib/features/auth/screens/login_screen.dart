@@ -2,6 +2,11 @@ import 'package:athletica/features/auth/screens/signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/widgets/page_transition.dart';
+import '../../dashboard/screens/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -47,8 +53,22 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Widget buildTextField(String label, IconData icon, bool obscure,
-      TextEditingController controller) {
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, color: Colors.white70),
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.1),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  Widget buildTextField(
+      String label, IconData icon, bool obscure, TextEditingController controller) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
@@ -57,19 +77,15 @@ class _LoginScreenState extends State<LoginScreen>
         if (value == null || value.isEmpty) {
           return "$label is required";
         }
+        if (label == "Email" && !value.contains("@")) {
+          return "Enter a valid email";
+        }
+        if (label == "Password" && value.length < 6) {
+          return "Password must be at least 6 characters";
+        }
         return null;
       },
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.white70),
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      decoration: _inputDecoration(label, icon),
     );
   }
 
@@ -79,12 +95,12 @@ class _LoginScreenState extends State<LoginScreen>
         pageBuilder: (context, animation, secondaryAnimation) =>
         const SignupScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0); // from right
+          const begin = Offset(1.0, 0.0); // slide in from right
           const end = Offset.zero;
           const curve = Curves.easeInOut;
 
-          var tween = Tween(begin: begin, end: end)
-              .chain(CurveTween(curve: curve));
+          var tween =
+          Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
 
           return SlideTransition(position: offsetAnimation, child: child);
@@ -92,6 +108,42 @@ class _LoginScreenState extends State<LoginScreen>
         transitionDuration: const Duration(milliseconds: 600),
       ),
     );
+  }
+
+  Future<void> login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => isLoading = true);
+      try {
+        final response = await Supabase.instance.client.auth.signInWithPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        );
+
+        if (response.user != null) {
+          Navigator.of(context).pushReplacement(
+            PageTransitions.createSlideFadeRoute(const DashboardScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login failed. Check credentials.')),
+          );
+        }
+      } catch (error) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      } finally {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<void> googleLogin() async {
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google,);
+    } catch (error) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   @override
@@ -119,12 +171,8 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Lottie.asset(
-                          'assets/animations/login.json',
-                          height: 180,
-                        ),
+                        Lottie.asset('assets/animations/login.json', height: 180),
                         const SizedBox(height: 20),
-
                         Text(
                           "Welcome Back to Athletica 🏋️‍♂️",
                           textAlign: TextAlign.center,
@@ -143,7 +191,9 @@ class _LoginScreenState extends State<LoginScreen>
                             "Password", Icons.lock, true, passwordController),
                         const SizedBox(height: 24),
 
-                        ElevatedButton(
+                        isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.indigo[700],
@@ -153,42 +203,31 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                             elevation: 4,
                           ),
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              // TODO: Navigate to dashboard
-                            }
-                          },
+                          onPressed: login,
                           child: const Text(
                             "Login",
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                         const SizedBox(height: 18),
 
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                                color: Colors.white, width: 1.5),
+                            side: const BorderSide(color: Colors.white, width: 1.5),
                             foregroundColor: Colors.white,
                             minimumSize: const Size(double.infinity, 55),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          icon: Image.asset(
-                            "assets/icons/google.png",
-                            height: 24,
-                          ),
+                          icon: Image.asset("assets/icons/google.png", height: 24),
                           label: const Text(
                             "Continue with Google",
                             style: TextStyle(fontSize: 16),
                           ),
-                          onPressed: () {
-                            // TODO: Google Sign-in logic
-                          },
+                          onPressed: googleLogin,
                         ),
                         const SizedBox(height: 30),
 
