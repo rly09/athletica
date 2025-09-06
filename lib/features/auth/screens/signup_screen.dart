@@ -21,9 +21,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   String? selectedState;
   String? selectedSport;
+  String? selectedGender;
   DateTime? selectedDob;
   bool isLoading = false;
 
@@ -42,6 +44,10 @@ class _SignupScreenState extends State<SignupScreen> {
     "Kabaddi", "Wrestling", "Boxing", "Archery", "Shooting",
     "Weightlifting", "Cycling", "Gymnastics", "Golf", "Chess",
     "Squash", "Handball", "Kho-Kho", "Rugby", "Martial Arts"
+  ];
+
+  final List<String> genders = [
+    "Male", "Female", "Other", "Prefer not to say"
   ];
 
   Future<void> _pickDob() async {
@@ -67,21 +73,22 @@ class _SignupScreenState extends State<SignupScreen> {
       final response = await Supabase.instance.client.auth.signUp(
         email: emailController.text.trim(),
         password: passwordController.text,
+        // disable email confirmation (user gets auto session)
+        emailRedirectTo: null,
       );
 
       final user = response.user;
       if (user != null) {
-        // Insert profile row
-        await Supabase.instance.client.from("profiles").insert({
-          "id": user.id,
+        await Supabase.instance.client.from("profiles").update({
           "name": "${firstNameController.text} ${surnameController.text}",
           "dob": selectedDob?.toIso8601String(),
           "state": selectedState,
           "sport": selectedSport,
+          "gender": selectedGender,
           "phone": phoneController.text.trim(),
-        });
+        }).eq("id", user.id);
 
-        // Navigate to Dashboard
+        // ✅ Navigate directly to Dashboard
         Navigator.of(context).pushReplacement(
           PageTransitions.createSlideFadeRoute(const DashboardScreen()),
         );
@@ -98,39 +105,6 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  Future<void> googleSignUp() async {
-    try {
-      await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google,);
-
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        // Check if profile exists
-        final existing = await Supabase.instance.client
-            .from("profiles")
-            .select()
-            .eq("id", user.id)
-            .maybeSingle();
-
-        if (existing == null) {
-          await Supabase.instance.client.from("profiles").insert({
-            "id": user.id,
-            "name": user.userMetadata?["full_name"] ?? "Unknown",
-            "dob": null,
-            "state": "",
-            "sport": "",
-            "phone": "",
-          });
-        }
-
-        Navigator.of(context).pushReplacement(
-          PageTransitions.createSlideFadeRoute(const DashboardScreen()),
-        );
-      }
-    } catch (error) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
-    }
-  }
 
   void navigateToLogin() {
     Navigator.push(
@@ -233,6 +207,23 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Gender
+                DropdownButtonFormField<String>(
+                  dropdownColor: Colors.indigo[800],
+                  value: selectedGender,
+                  items: genders
+                      .map((g) => DropdownMenuItem(
+                    value: g,
+                    child: Text(g,
+                        style: const TextStyle(color: Colors.white)),
+                  ))
+                      .toList(),
+                  onChanged: (val) => setState(() => selectedGender = val),
+                  validator: (v) => v == null ? "Select gender" : null,
+                  decoration: _inputDecoration("Gender", Icons.wc),
+                ),
+                const SizedBox(height: 16),
+
                 // Email
                 TextFormField(
                   controller: emailController,
@@ -251,8 +242,8 @@ class _SignupScreenState extends State<SignupScreen> {
                 TextFormField(
                   controller: phoneController,
                   style: const TextStyle(color: Colors.white),
-                  decoration:
-                  _inputDecoration("Phone Number (Optional)", Icons.phone),
+                  decoration: _inputDecoration(
+                      "Phone Number (Optional)", Icons.phone),
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 16),
@@ -268,6 +259,23 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                   obscureText: true,
                   decoration: _inputDecoration("Password", Icons.lock),
+                ),
+                const SizedBox(height: 16),
+
+                // Confirm Password
+                TextFormField(
+                  controller: confirmPasswordController,
+                  style: const TextStyle(color: Colors.white),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return "Confirm password";
+                    if (v != passwordController.text) {
+                      return "Passwords do not match";
+                    }
+                    return null;
+                  },
+                  obscureText: true,
+                  decoration:
+                  _inputDecoration("Confirm Password", Icons.lock_outline),
                 ),
                 const SizedBox(height: 16),
 
@@ -326,24 +334,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-
-                // Google SignUp
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white, width: 1.5),
-                    minimumSize: const Size(double.infinity, 55),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: googleSignUp,
-                  icon: Image.asset("assets/icons/google.png", height: 24),
-                  label: const Text(
-                    "Sign Up with Google",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ),
-                const SizedBox(height: 24),
 
                 // Already have account?
                 Row(
